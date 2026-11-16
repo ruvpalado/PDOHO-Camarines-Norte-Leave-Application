@@ -123,13 +123,13 @@ export default function AdminAccountsPage() {
                           <button className="btn-danger" disabled={busyId === u.id} onClick={() => act(u.id, 'reject')}>Reject</button>
                         </>
                       )}
-                      {u.status === 'active' && u.username !== currentUser && (
+                      {u.status === 'active' && u.username !== currentUser && u.role !== 'developer' && (
                         <button className="btn-danger" disabled={busyId === u.id} onClick={() => act(u.id, 'deactivate')}>Deactivate</button>
                       )}
                       {u.status === 'deactivated' && (
                         <button className="btn-primary" disabled={busyId === u.id} onClick={() => act(u.id, 'reactivate')}>Reactivate</button>
                       )}
-                      {u.status === 'active' && u.username === currentUser && (
+                      {u.status === 'active' && (u.username === currentUser || u.role === 'developer') && (
                         <span style={{ color: '#595959', fontSize: 11 }}>—</span>
                       )}
                     </td>

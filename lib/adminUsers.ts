@@ -272,9 +272,9 @@ export async function setAdminUserStatus(
   actorUsername: string
 ): Promise<{ ok: true; email: string | null; username: string } | { ok: false; error: string }> {
   await ensureAdminUsersSeeded();
-  const result = await sql`SELECT id, username, email, status FROM admin_users WHERE id = ${id} LIMIT 1;`;
+  const result = await sql`SELECT id, username, email, status, role FROM admin_users WHERE id = ${id} LIMIT 1;`;
   if (result.rowCount === 0) return { ok: false, error: 'Account not found.' };
-  const row = result.rows[0] as { id: number; username: string; email: string | null; status: string };
+  const row = result.rows[0] as { id: number; username: string; email: string | null; status: string; role: string };
 
   if (action === 'approve') {
     if (row.status !== 'pending') return { ok: false, error: 'Only pending accounts can be approved.' };
@@ -285,6 +285,7 @@ export async function setAdminUserStatus(
   } else if (action === 'deactivate') {
     if (row.status !== 'active') return { ok: false, error: 'Only active accounts can be deactivated.' };
     if (row.username === actorUsername) return { ok: false, error: 'You cannot deactivate your own account.' };
+    if (row.role === 'developer') return { ok: false, error: 'Developer account cannot be deactivated.' };
     await sql`UPDATE admin_users SET status = 'deactivated', deactivated_at = now(), deactivated_by = ${actorUsername}, updated_at = now() WHERE id = ${id};`;
   } else if (action === 'reactivate') {
     if (row.status !== 'deactivated') return { ok: false, error: 'Only deactivated accounts can be reactivated.' };
