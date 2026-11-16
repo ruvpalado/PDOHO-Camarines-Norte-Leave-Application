@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { LEAVE_TYPES } from '@/lib/leaveTypes';
 
 type Application = {
   id: number;
@@ -105,6 +106,73 @@ export default function AdminDashboard() {
     }
   }
 
+  const [editing, setEditing] = useState<Application | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  function openEdit(a: Application) {
+    setEditError('');
+    setForm({
+      last_name: a.last_name || '',
+      first_name: a.first_name || '',
+      middle_name: a.middle_name || '',
+      position: a.position || '',
+      salary: a.salary || '',
+      email: a.email || '',
+      facility_name: a.facility_name || '',
+      leave_type: a.leave_type || '',
+      details_category: a.details_category || '',
+      details_specify: a.details_specify || '',
+      start_date: fmtDate(a.start_date),
+      end_date: fmtDate(a.end_date),
+      days_applied: String(a.days_applied ?? ''),
+      commutation: a.commutation || 'Not Requested',
+    });
+    setEditing(a);
+  }
+
+  function setField(k: string, v: string) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setSavingEdit(true);
+    setEditError('');
+    try {
+      const res = await fetch(`/api/applications/${editing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'edit', fields: form }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEditError(data.error || 'Could not save changes.');
+        return;
+      }
+      setEditing(null);
+      load(tab);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function removeApp(a: Application) {
+    const ref = `LM-${String(a.id).padStart(4, '0')}`;
+    if (!window.confirm(`Delete ${ref} (${a.last_name}, ${a.first_name})? This cannot be undone.`)) return;
+    setBusyId(a.id);
+    try {
+      const res = await fetch(`/api/applications/${a.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) alert(data.error || 'Delete failed.');
+      else load(tab);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function logout() {
     await fetch('/api/admin/logout', { method: 'POST' });
     window.location.href = '/admin/login';
@@ -168,7 +236,7 @@ export default function AdminDashboard() {
                   {tab !== 'pending' && <th>Decided By / When</th>}
                   {tab === 'cancelled' && <th>Cancelled By / When</th>}
                   {(tab === 'rejected' || tab === 'cancelled') && <th>Reason</th>}
-                  {(tab === 'pending' || tab === 'approved') && <th>Action</th>}
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -219,23 +287,31 @@ export default function AdminDashboard() {
                     )}
                     {tab === 'rejected' && <td>{a.decision_note || ''}</td>}
                     {tab === 'cancelled' && <td>{a.cancel_reason || ''}</td>}
-                    {tab === 'pending' && (
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <button className="btn-primary" disabled={busyId === a.id} onClick={() => decide(a.id, 'approve')}>
-                          Approve
-                        </button>{' '}
-                        <button className="btn-danger" disabled={busyId === a.id} onClick={() => decide(a.id, 'reject')}>
-                          Reject
-                        </button>
-                      </td>
-                    )}
-                    {tab === 'approved' && (
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <button className="btn-danger" disabled={busyId === a.id} onClick={() => decide(a.id, 'cancel')}>
-                          Cancel
-                        </button>
-                      </td>
-                    )}
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {tab === 'pending' && (
+                        <>
+                          <button className="btn-primary" disabled={busyId === a.id} onClick={() => decide(a.id, 'approve')}>
+                            Approve
+                          </button>{' '}
+                          <button className="btn-danger" disabled={busyId === a.id} onClick={() => decide(a.id, 'reject')}>
+                            Reject
+                          </button>{' '}
+                        </>
+                      )}
+                      {tab === 'approved' && (
+                        <>
+                          <button className="btn-danger" disabled={busyId === a.id} onClick={() => decide(a.id, 'cancel')}>
+                            Cancel
+                          </button>{' '}
+                        </>
+                      )}
+                      <button className="btn-secondary" disabled={busyId === a.id} onClick={() => openEdit(a)}>
+                        Edit
+                      </button>{' '}
+                      <button className="btn-danger" disabled={busyId === a.id} onClick={() => removeApp(a)}>
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -243,6 +319,137 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {editing && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            padding: 24,
+            overflowY: 'auto',
+            zIndex: 50,
+          }}
+          onClick={() => !savingEdit && setEditing(null)}
+        >
+          <form
+            className="card"
+            onSubmit={saveEdit}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 900, margin: '24px 0' }}
+          >
+            <div className="topbar" style={{ marginBottom: 8 }}>
+              <h2 style={{ margin: 0, fontSize: 16 }}>
+                Edit LM-{String(editing.id).padStart(4, '0')}
+              </h2>
+              <button type="button" className="btn-secondary" onClick={() => setEditing(null)} disabled={savingEdit}>
+                Close
+              </button>
+            </div>
+
+            {editError && <div className="err-banner">{editError}</div>}
+
+            <div className="row">
+              <div className="field">
+                <label className="req">Last Name</label>
+                <input value={form.last_name} onChange={(e) => setField('last_name', e.target.value)} required />
+              </div>
+              <div className="field">
+                <label className="req">First Name</label>
+                <input value={form.first_name} onChange={(e) => setField('first_name', e.target.value)} required />
+              </div>
+              <div className="field">
+                <label>Middle Name</label>
+                <input value={form.middle_name} onChange={(e) => setField('middle_name', e.target.value)} />
+              </div>
+            </div>
+
+            <div className="row">
+              <div className="field">
+                <label>Email</label>
+                <input type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Position</label>
+                <input value={form.position} onChange={(e) => setField('position', e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Salary</label>
+                <input type="number" value={form.salary} onChange={(e) => setField('salary', e.target.value)} />
+              </div>
+            </div>
+
+            <div className="row">
+              <div className="field">
+                <label>Facility</label>
+                <input value={form.facility_name} onChange={(e) => setField('facility_name', e.target.value)} />
+              </div>
+              <div className="field">
+                <label className="req">Type of Leave</label>
+                <select value={form.leave_type} onChange={(e) => setField('leave_type', e.target.value)} required>
+                  <option value="">Select...</option>
+                  {LEAVE_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Commutation</label>
+                <select value={form.commutation} onChange={(e) => setField('commutation', e.target.value)}>
+                  <option>Not Requested</option>
+                  <option>Requested</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="row">
+              <div className="field">
+                <label>Details Category</label>
+                <input value={form.details_category} onChange={(e) => setField('details_category', e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Details Specify</label>
+                <input value={form.details_specify} onChange={(e) => setField('details_specify', e.target.value)} />
+              </div>
+            </div>
+
+            <div className="row">
+              <div className="field">
+                <label className="req">Leave Start Date</label>
+                <input type="date" value={form.start_date} onChange={(e) => setField('start_date', e.target.value)} required />
+              </div>
+              <div className="field">
+                <label className="req">Leave End Date</label>
+                <input type="date" value={form.end_date} onChange={(e) => setField('end_date', e.target.value)} required />
+              </div>
+              <div className="field">
+                <label className="req">Working Days Applied</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={form.days_applied}
+                  onChange={(e) => setField('days_applied', e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <button type="button" className="btn-secondary" onClick={() => setEditing(null)} disabled={savingEdit}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary" disabled={savingEdit}>
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
