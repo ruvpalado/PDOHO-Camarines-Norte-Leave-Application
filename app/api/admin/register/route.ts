@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     const result = await registerAdmin(username, password, email);
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return NextResponse.json({ error: (result as { error: string }).error }, { status: 400 });
     }
 
     const rawToken = await createRegistrationApprovalToken(result.id);

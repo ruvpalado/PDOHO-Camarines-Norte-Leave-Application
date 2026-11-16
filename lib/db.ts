@@ -126,5 +126,10 @@ export async function ensureSchema() {
     );
   `;
 
+  // Deactivation/reactivation support: deactivated accounts may be reactivated within 90 days,
+  // then are auto-deleted by the cleanup cron.
+  await sql`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMPTZ;`;
+  await sql`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS deactivated_by TEXT;`;
+
   schemaReady = true;
 }

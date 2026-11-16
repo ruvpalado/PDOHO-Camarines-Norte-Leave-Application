@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+    if (result === 'deactivated') {
+      return NextResponse.json(
+        { error: 'This account has been deactivated. It can be reactivated by an administrator within 90 days of deactivation.' },
+        { status: 403 }
+      );
+    }
     const cookieValue = await createSessionCookieValue(username);
     const res = NextResponse.json({ ok: true });
     res.cookies.set(SESSION_COOKIE_NAME, cookieValue, {

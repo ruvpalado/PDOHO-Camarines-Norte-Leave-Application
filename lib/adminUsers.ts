@@ -111,7 +111,7 @@ async function ensureAdminUsersSeeded(): Promise<void> {
   return seededPromise;
 }
 
-export type LoginResult = 'ok' | 'invalid' | 'pending' | 'rejected';
+export type LoginResult = 'ok' | 'invalid' | 'pending' | 'rejected' | 'deactivated';
 
 export async function checkAdminCredentials(username: string, password: string): Promise<LoginResult> {
   if (!username || !password) return 'invalid';
@@ -123,6 +123,7 @@ export async function checkAdminCredentials(username: string, password: string):
   if (!passOk) return 'invalid';
   if (row.status === 'pending') return 'pending';
   if (row.status === 'rejected') return 'rejected';
+  if (row.status === 'deactivated') return 'deactivated';
   return 'ok';
 }
 
@@ -232,8 +233,69 @@ export async function decideRegistration(
   const user = userResult.rows[0] as { username: string; email: string | null };
 
   const newStatus = decision === 'approved' ? 'active' : 'rejected';
-  await sql`UPDATE admin_users SET status = ${newStatus}, updated_at = now() WHERE id = ${row.admin_user_id};`;
+  await sql`UPDATE admin_users SET status = ${newStatus}, deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = ${row.admin_user_id};`;
   await sql`UPDATE admin_registration_approvals SET decided_at = now(), decision = ${decision} WHERE id = ${row.id};`;
 
   return { ok: true, username: user.username, email: user.email };
+}
+
+export type AdminUserRow = {
+  id: number;
+  username: string;
+  email: string | null;
+  role: string;
+  status: string;
+  created_at: string;
+  deactivated_at: string | null;
+  deactivated_by: string | null;
+  days_until_deletion: number | null;
+};
+
+export async function listAdminUsers(): Promise<AdminUserRow[]> {
+  await ensureAdminUsersSeeded();
+  // Purge deactivated accounts past 90 days on read so UI/behavior stays consistent even without cron.
+  await sql`DELETE FROM admin_users WHERE status = 'deactivated' AND deactivated_at IS NOT NULL AND deactivated_at < now() - interval '90 days';`;
+  const result = await sql`
+    SELECT id, username, email, role, status, created_at, deactivated_at, deactivated_by,
+      CASE WHEN status = 'deactivated' AND deactivated_at IS NOT NULL
+        THEN GREATEST(0, 90 - FLOOR(EXTRACT(EPOCH FROM (now() - deactivated_at)) / 86400)::int)
+        ELSE NULL END AS days_until_deletion
+    FROM admin_users
+    ORDER BY created_at DESC, id DESC;
+  `;
+  return result.rows as AdminUserRow[];
+}
+
+export async function setAdminUserStatus(
+  id: number,
+  action: 'approve' | 'reject' | 'deactivate' | 'reactivate',
+  actorUsername: string
+): Promise<{ ok: true; email: string | null; username: string } | { ok: false; error: string }> {
+  await ensureAdminUsersSeeded();
+  const result = await sql`SELECT id, username, email, status FROM admin_users WHERE id = ${id} LIMIT 1;`;
+  if (result.rowCount === 0) return { ok: false, error: 'Account not found.' };
+  const row = result.rows[0] as { id: number; username: string; email: string | null; status: string };
+
+  if (action === 'approve') {
+    if (row.status !== 'pending') return { ok: false, error: 'Only pending accounts can be approved.' };
+    await sql`UPDATE admin_users SET status = 'active', deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = ${id};`;
+  } else if (action === 'reject') {
+    if (row.status !== 'pending') return { ok: false, error: 'Only pending accounts can be rejected.' };
+    await sql`UPDATE admin_users SET status = 'rejected', updated_at = now() WHERE id = ${id};`;
+  } else if (action === 'deactivate') {
+    if (row.status !== 'active') return { ok: false, error: 'Only active accounts can be deactivated.' };
+    if (row.username === actorUsername) return { ok: false, error: 'You cannot deactivate your own account.' };
+    await sql`UPDATE admin_users SET status = 'deactivated', deactivated_at = now(), deactivated_by = ${actorUsername}, updated_at = now() WHERE id = ${id};`;
+  } else if (action === 'reactivate') {
+    if (row.status !== 'deactivated') return { ok: false, error: 'Only deactivated accounts can be reactivated.' };
+    await sql`UPDATE admin_users SET status = 'active', deactivated_at = NULL, deactivated_by = NULL, updated_at = now() WHERE id = ${id};`;
+  }
+
+  return { ok: true, email: row.email, username: row.username };
+}
+
+export async function deleteExpiredDeactivatedAdmins(): Promise<number> {
+  await ensureAdminUsersSeeded();
+  const res = await sql`DELETE FROM admin_users WHERE status = 'deactivated' AND deactivated_at IS NOT NULL AND deactivated_at < now() - interval '90 days' RETURNING id;`;
+  return res.rowCount || 0;
 }

@@ -54,6 +54,8 @@ tbody tr:nth-child(even) { background: #F7FAFC; }
 .pill-pending { background: #FAEEDA; color: #8A5A00; }
 .pill-approved { background: #E1F5EE; color: #04342C; }
 .pill-rejected { background: #FCE4E4; color: #A6291B; }
+.pill-active { background: #E1F5EE; color: #04342C; }
+.pill-deactivated { background: #F1F3F5; color: #595959; }
 
 .report-header { border-bottom: 1px solid #E4EAF1; padding-bottom: 10px; margin-bottom: 4px; }
 

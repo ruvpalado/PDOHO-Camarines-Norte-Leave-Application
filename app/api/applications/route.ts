@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
          ${facilityName || null}, ${employeeKey}, ${startDate}, ${endDate}, ${days}, ${commutation || 'Not Requested'},
          ${attachmentBuffer ? attachmentFileName || 'attachment' : null},
          ${attachmentBuffer ? attachmentMimeType || 'application/octet-stream' : null},
-         ${attachmentBuffer},
+         ${attachmentBuffer ? (attachmentBuffer as any) : null},
          'pending')
       RETURNING id;
     `;

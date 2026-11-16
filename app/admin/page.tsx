@@ -201,6 +201,9 @@ export default function AdminDashboard() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <a href="/admin/accounts" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-block' }}>
+            Admin Accounts
+          </a>
           <a href="/admin/reports" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-block' }}>
             Generate Report
           </a>

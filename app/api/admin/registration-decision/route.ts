@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
   const result = await decideRegistration(token, decision);
   if (!result.ok) {
-    return new NextResponse(htmlPage('Could Not Process', result.error), {
+    return new NextResponse(htmlPage('Could Not Process', (result as { error: string }).error), {
       status: 400,
       headers: { 'Content-Type': 'text/html' },
     });
