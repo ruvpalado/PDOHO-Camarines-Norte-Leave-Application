@@ -38,9 +38,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (result.email) {
-    sendRegistrationDecisionEmail({ to: result.email, username: result.username, decision }).catch((err) =>
-      console.error('sendRegistrationDecisionEmail threw:', err)
-    );
+    await sendRegistrationDecisionEmail({ to: result.email, username: result.username, decision });
   }
 
   const title = decision === 'approved' ? 'Registration Approved' : 'Registration Rejected';

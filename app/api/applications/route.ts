@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     const id = result.rows[0].id as number;
     const reference = `LM-${String(id).padStart(4, '0')}`;
 
-    sendLeaveStatusEmail({
+    await sendLeaveStatusEmail({
       to: email,
       applicantName: `${firstName} ${lastName}`,
       leaveType,
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       endDate,
       status: 'submitted',
       reference,
-    }).catch((err) => console.error('sendLeaveStatusEmail (submitted) threw:', err));
+    });
 
     return NextResponse.json({ ok: true, id, reference }, { status: 201 });
   } catch (err: any) {

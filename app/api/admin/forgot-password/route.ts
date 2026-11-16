@@ -24,9 +24,7 @@ export async function POST(req: NextRequest) {
         const resetUrl = `${req.nextUrl.origin}/admin/reset-password?username=${encodeURIComponent(
           username
         )}&token=${encodeURIComponent(rawToken)}`;
-        sendPasswordResetEmail({ to: email, username, resetUrl }).catch((err) =>
-          console.error('sendPasswordResetEmail threw:', err)
-        );
+        await sendPasswordResetEmail({ to: email, username, resetUrl });
       } else {
         console.warn(
           `Password reset requested for "${username}" but no recovery email is on file (set the ADMIN_EMAIL env var, or update admin_users.email).`

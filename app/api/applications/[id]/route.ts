@@ -77,7 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       end_date: string;
     };
     if (row.email) {
-      sendLeaveStatusEmail({
+      await sendLeaveStatusEmail({
         to: row.email,
         applicantName: `${row.first_name} ${row.last_name}`,
         leaveType: row.leave_type,
@@ -86,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         status: newStatus,
         note,
         reference: `LM-${String(row.id).padStart(4, '0')}`,
-      }).catch((err) => console.error('sendLeaveStatusEmail threw:', err));
+      });
     }
 
     return NextResponse.json({ ok: true });

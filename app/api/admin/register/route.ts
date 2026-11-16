@@ -32,9 +32,7 @@ export async function POST(req: NextRequest) {
     const approverEmail = getApproverEmail();
     const approveUrl = `${req.nextUrl.origin}/api/admin/registration-decision?token=${encodeURIComponent(rawToken)}&decision=approve`;
     const rejectUrl = `${req.nextUrl.origin}/api/admin/registration-decision?token=${encodeURIComponent(rawToken)}&decision=reject`;
-    sendRegistrationApprovalEmail({ to: approverEmail, username, registrantEmail: email, approveUrl, rejectUrl }).catch(
-      (err) => console.error('sendRegistrationApprovalEmail threw:', err)
-    );
+    await sendRegistrationApprovalEmail({ to: approverEmail, username, registrantEmail: email, approveUrl, rejectUrl });
 
     return NextResponse.json({
       ok: true,
